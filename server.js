@@ -17,7 +17,11 @@ cloudinary.config({
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 app.use(express.json());
 
 const AI_PROMPT = `Edita la imagen manteniendo el rostro, la pose y la identidad exacta de la persona. Transforma la escena para que la persona aparezca dentro de la pantalla de una Game Boy clasica gigante de color azul (#078dfc), como si estuviera dentro de un videojuego. La pantalla debe convertirse en un mundo interactivo estilo videojuego retro, con plataformas, monedas, obstaculos, barra de vida y elementos HUD gaming. La persona debe verse integrada dentro del juego en una pose dinamica, como si estuviera avanzando de nivel. Mantener: rostro exacto, rasgos faciales, peinado, ropa base, esencia natural de la pose. Estilo: mezcla de realismo cinematografico con estetica videojuego retro, iluminacion premium, nostalgia gaming, acabado publicitario viral. Resultado final altamente memorable, creativo y perfecto para redes sociales.`;
