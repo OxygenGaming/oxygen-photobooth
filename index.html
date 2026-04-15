@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Oxygen Gaming Photobooth</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #010d1a;
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* ── PANTALLAS ── */
+    .screen { display: none; width: 100%; max-width: 480px; padding: 20px; flex-direction: column; align-items: center; gap: 16px; }
+    .screen.active { display: flex; }
+
+    /* ── GAME BOY ── */
+    .gb-device {
+      background: #078dfc;
+      border-radius: 16px 16px 50px 16px;
+      border: 3px solid #0460b0;
+      padding: 16px 16px 0 16px;
+      width: 100%;
+      max-width: 360px;
+    }
+    .gb-bezel {
+      background: #023a6b;
+      border-radius: 10px 10px 24px 10px;
+      padding: 10px;
+      border: 3px solid #012a50;
+      margin-bottom: 12px;
+    }
+    .gb-screen {
+      background: #0a1628;
+      border-radius: 6px;
+      aspect-ratio: 4/3;
+      overflow: hidden;
+      position: relative;
+    }
+    .gb-hud {
+      position: absolute; top: 0; left: 0; right: 0;
+      background: #012a50;
+      padding: 4px 8px;
+      display: flex; justify-content: space-between; align-items: center;
+      z-index: 5;
+    }
+    .hud-text { color: #078dfc; font-size: 7px; font-weight: 700; letter-spacing: .5px; }
+    .hud-hearts { display: flex; gap: 3px; }
+    .heart { width: 8px; height: 8px; background: #ff3b5c; clip-path: polygon(50% 90%, 0% 35%, 15% 0%, 50% 20%, 85% 0%, 100% 35%); }
+    .heart.empty { background: #023a6b; border: 1px solid #078dfc; clip-path: polygon(50% 90%, 0% 35%, 15% 0%, 50% 20%, 85% 0%, 100% 35%); }
+
+    .gb-scene {
+      position: absolute; inset: 0; top: 22px;
+      background: #0a1628;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .platform { position: absolute; height: 6px; background: #078dfc; border-radius: 2px; opacity: .6; }
+    .coin { position: absolute; width: 8px; height: 8px; background: #FFD700; border-radius: 50%; border: 1.5px solid #cc9900; }
+    .ground { position: absolute; bottom: 0; left: 0; right: 0; height: 16px; background: #012a50; }
+    .scanline {
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,.1) 3px, rgba(0,0,0,.1) 4px);
+      pointer-events: none; z-index: 10;
+    }
+
+    /* ── LOGO ZONA ── */
+    .gb-bottom {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 10px 0 14px;
+      gap: 6px;
+    }
+    .gb-logo-img {
+      width: 100px; height: auto;
+      filter: brightness(0) invert(1);
+      animation: float 3s ease-in-out infinite;
+    }
+    .gb-brand { font-size: 7px; font-weight: 700; color: white; letter-spacing: 3px; opacity: .8; }
+
+    /* ── CONTROLES ── */
+    .gb-controls {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 8px 12px;
+    }
+    .dpad { width: 50px; height: 50px; position: relative; }
+    .dpad-h { position: absolute; top: 33%; left: 0; right: 0; height: 33%; background: #023a6b; border-radius: 2px; }
+    .dpad-v { position: absolute; left: 33%; top: 0; bottom: 0; width: 33%; background: #023a6b; border-radius: 2px; }
+    .dpad-c { position: absolute; top: 33%; left: 33%; width: 34%; height: 34%; background: #012a50; border-radius: 50%; }
+    .selstart { display: flex; gap: 5px; align-items: center; }
+    .ss-btn { width: 14px; height: 5px; background: #023a6b; border-radius: 3px; }
+    .ab { display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
+    .gb-btn { width: 20px; height: 20px; border-radius: 50%; border: none; }
+    .btn-a { background: #FF3B5C; }
+    .btn-b { background: #FFD700; }
+
+    /* ── BOTONES UI ── */
+    .btn-insert {
+      background: #078dfc; color: white;
+      border: 2px solid #0460b0;
+      font-family: 'Courier New', monospace;
+      font-size: 13px; font-weight: 700;
+      padding: 14px 20px; border-radius: 8px;
+      cursor: pointer; letter-spacing: 2px;
+      width: 100%; max-width: 360px;
+      text-transform: uppercase;
+    }
+    .btn-insert:hover { background: #0570cc; }
+    .btn-insert:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-back {
+      background: transparent; color: #4d9fd8;
+      border: 1px solid #023a6b;
+      font-family: 'Courier New', monospace;
+      font-size: 11px; padding: 8px 16px; border-radius: 6px;
+      cursor: pointer; letter-spacing: 1px;
+      align-self: flex-start;
+    }
+    .btn-back:hover { background: #012a50; }
+
+    /* ── CÁMARA ── */
+    .cam-wrap {
+      width: 100%; max-width: 360px;
+      aspect-ratio: 4/3;
+      background: #010d1a;
+      border-radius: 12px;
+      border: 2px solid #078dfc;
+      position: relative; overflow: hidden;
+    }
+    #video { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 10px; }
+    #canvas { display: none; }
+    .cam-corners { position: absolute; inset: 0; pointer-events: none; }
+    .cam-corners::before, .cam-corners::after,
+    .cam-wrap::before, .cam-wrap::after { content: ''; position: absolute; width: 16px; height: 16px; border-color: #078dfc; border-style: solid; }
+    .rec-badge { position: absolute; top: 10px; right: 12px; display: flex; align-items: center; gap: 5px; }
+    .rec-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff3b5c; animation: pulse 1.2s infinite; }
+    .rec-text { font-size: 8px; font-weight: 700; color: #ff3b5c; letter-spacing: 1px; }
+    .cam-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); font-size: 8px; color: #078dfc; font-weight: 700; letter-spacing: 1px; white-space: nowrap; }
+
+    /* ── COUNTDOWN ── */
+    .countdown-overlay {
+      display: none; position: absolute; inset: 0;
+      background: rgba(2, 42, 80, .85);
+      align-items: center; justify-content: center;
+      z-index: 20;
+    }
+    .countdown-overlay.show { display: flex; }
+    .countdown-num { font-size: 100px; font-weight: 700; color: #078dfc; line-height: 1; }
+
+    /* ── PROCESSING ── */
+    .proc-wrap { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 12px; }
+    .proc-bar-outer { width: 100%; height: 8px; background: #012a50; border-radius: 999px; overflow: hidden; border: 1px solid #023a6b; }
+    .proc-bar-inner { height: 100%; background: #078dfc; border-radius: 999px; transition: width .3s; width: 0%; }
+    .proc-step {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #012a50;
+      border: 1px solid #023a6b;
+    }
+    .proc-step.active { border-color: #078dfc; }
+    .proc-step.done { border-color: #1D9E75; }
+    .proc-icon { font-size: 16px; width: 28px; text-align: center; flex-shrink: 0; }
+    .proc-title { font-size: 12px; color: #78bfff; font-weight: 700; }
+    .proc-sub { font-size: 10px; color: #4d6f8a; margin-top: 2px; }
+
+    /* ── QR ── */
+    .qr-wrap {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      width: 100%; max-width: 280px;
+    }
+    .qr-label { font-size: 9px; font-weight: 700; color: #078dfc; letter-spacing: 1px; text-align: center; }
+    #qr-img { width: 200px; height: 200px; }
+    .qr-timer-bar { width: 100%; height: 5px; background: #e0e0e0; border-radius: 999px; overflow: hidden; }
+    .qr-timer-inner { height: 100%; background: #1D9E75; border-radius: 999px; width: 100%; transition: width .5s linear; }
+    .qr-secs { font-size: 11px; color: #555; text-align: center; }
+
+    /* ── TEXTOS ── */
+    .screen-title { font-size: 18px; font-weight: 700; color: #078dfc; letter-spacing: 2px; text-align: center; }
+    .screen-sub { font-size: 11px; color: #4d9fd8; text-align: center; letter-spacing: .5px; }
+    .blink { animation: blink 1.2s infinite; }
+    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: #078dfc; animation: pulse 1s infinite; }
+
+    /* ── ANIMACIONES ── */
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+    @keyframes coinbounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+    .coin { animation: coinbounce 1.5s ease-in-out infinite; }
+
+    /* ── STATUS BAR ── */
+    .status-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      background: #012a50;
+      border-radius: 8px;
+      border: 1px solid #023a6b;
+      width: 100%; max-width: 360px;
+    }
+    .status-text { font-size: 11px; color: #4d9fd8; flex: 1; }
+    .status-badge { background: #078dfc; color: white; font-size: 9px; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
+
+    /* ── ERROR ── */
+    .error-box {
+      background: #1a0a0a; border: 1px solid #E24B4A;
+      border-radius: 8px; padding: 12px 16px;
+      font-size: 11px; color: #F09595;
+      width: 100%; max-width: 360px; text-align: center;
+      display: none;
+    }
+    .error-box.show { display: block; }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════
+       PANTALLA 1: BIENVENIDA
+  ══════════════════════════════════════ -->
+  <div id="screen-welcome" class="screen active">
+
+    <div class="gb-device">
+      <div class="gb-bezel">
+        <div class="gb-screen">
+          <div class="gb-hud">
+            <div class="hud-hearts">
+              <div class="heart"></div>
+              <div class="heart"></div>
+              <div class="heart"></div>
+            </div>
+            <div class="hud-text">OXYGEN GAMING</div>
+            <div class="hud-text">2026</div>
+          </div>
+          <div class="gb-scene">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:0 10px 20px;">
+              <div style="font-size:9px;font-weight:700;color:#078dfc;letter-spacing:2px;text-align:center;line-height:1.9;">PHOTOBOOTH</div>
+              <div style="width:60%;height:1px;background:#078dfc;opacity:.4;"></div>
+              <div style="font-size:6px;color:#4d9fd8;text-align:center;line-height:2;letter-spacing:.5px;">ENTRA AL JUEGO<br>CON TU FOTO</div>
+              <div style="font-size:7px;color:#078dfc;font-weight:700;letter-spacing:1px;" class="blink">▶ PRESS START</div>
+            </div>
+            <div class="platform" style="bottom:26px;left:12px;width:34px;"></div>
+            <div class="platform" style="bottom:40px;left:75px;width:28px;"></div>
+            <div class="platform" style="bottom:30px;right:12px;width:38px;"></div>
+            <div class="coin" style="bottom:46px;left:19px;animation-delay:.2s;"></div>
+            <div class="coin" style="bottom:60px;left:82px;animation-delay:.6s;"></div>
+            <div class="coin" style="bottom:50px;right:24px;animation-delay:1s;"></div>
+            <div class="ground"></div>
+          </div>
+          <div class="scanline"></div>
+        </div>
+      </div>
+
+      <div class="gb-controls">
+        <div class="dpad"><div class="dpad-h"></div><div class="dpad-v"></div><div class="dpad-c"></div></div>
+        <div class="selstart"><div class="ss-btn"></div><div class="ss-btn"></div></div>
+        <div class="ab"><div class="gb-btn btn-a"></div><div class="gb-btn btn-b"></div></div>
+      </div>
+
+      <div class="gb-bottom">
+        <img class="gb-logo-img" src="logo.png" alt="Oxygen Gaming" onerror="this.style.display='none'">
+        <div class="gb-brand">OXYGEN GAMING</div>
+      </div>
+    </div>
+
+    <button class="btn-insert" onclick="goToCamera()">INSERT COIN ▶</button>
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       PANTALLA 2: CÁMARA
+  ══════════════════════════════════════ -->
+  <div id="screen-camera" class="screen">
+    <button class="btn-back" onclick="goToWelcome()">← VOLVER</button>
+    <div class="screen-title">HAZTE LA FOTO</div>
+    <div class="screen-sub">Centra tu cara · Mira a la cámara</div>
+
+    <div class="cam-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="canvas"></canvas>
+      <div class="rec-badge">
+        <div class="rec-dot"></div>
+        <span class="rec-text">REC</span>
+      </div>
+      <div class="cam-hint">APUNTA AQUÍ</div>
+      <div class="countdown-overlay" id="countdown">
+        <div class="countdown-num" id="countdown-num">3</div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="pulse-dot"></div>
+      <span class="status-text">Filtro: Game Boy Oxygen · Identidad preservada</span>
+      <div class="status-badge">IA LISTA</div>
+    </div>
+
+    <button class="btn-insert" id="shoot-btn" onclick="startCountdown()">
+      FOTO — CUENTA ATRÁS 3s ▶
+    </button>
+    <div class="error-box" id="cam-error">No se puede acceder a la cámara. Comprueba los permisos del navegador.</div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       PANTALLA 3: PROCESANDO
+  ══════════════════════════════════════ -->
+  <div id="screen-processing" class="screen">
+    <div class="screen-title">IA PROCESANDO...</div>
+    <div class="screen-sub">Construyendo tu mundo Game Boy</div>
+
+    <div class="proc-wrap">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span style="font-size:11px;color:#4d9fd8;" id="proc-label">Iniciando...</span>
+        <span style="font-size:11px;color:#078dfc;font-weight:700;" id="proc-pct">0%</span>
+      </div>
+      <div class="proc-bar-outer"><div class="proc-bar-inner" id="proc-bar"></div></div>
+
+      <div class="proc-step idle" id="step-0">
+        <div class="proc-icon">📷</div>
+        <div><div class="proc-title">Detectando rostro e identidad</div><div class="proc-sub">Preservación facial con GPT-4o Vision</div></div>
+      </div>
+      <div class="proc-step idle" id="step-1">
+        <div class="proc-icon">🎮</div>
+        <div><div class="proc-title">Construyendo mundo Game Boy</div><div class="proc-sub">Plataformas, HUD, azul Oxygen #078dfc</div></div>
+      </div>
+      <div class="proc-step idle" id="step-2">
+        <div class="proc-icon">✨</div>
+        <div><div class="proc-title">Integrando persona en el juego</div><div class="proc-sub">DALL-E 3 HD · Acabado publicitario</div></div>
+      </div>
+      <div class="proc-step idle" id="step-3">
+        <div class="proc-icon">📱</div>
+        <div><div class="proc-title">Generando QR de descarga</div><div class="proc-sub">Listo para redes sociales</div></div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div class="pulse-dot"></div>
+      <span style="font-size:10px;color:#4d9fd8;">Oxygen Gaming Photobooth · No mover la tablet</span>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════
+       PANTALLA 4: QR LISTO
+  ══════════════════════════════════════ -->
+  <div id="screen-qr" class="screen">
+    <div class="screen-title">¡LEVEL COMPLETE!</div>
+    <div class="screen-sub">Escanea con tu móvil para descargar tu foto</div>
+
+    <div class="qr-wrap">
+      <div class="qr-label">OXYGEN GAMING PHOTOBOOTH · SCAN TO DOWNLOAD</div>
+      <img id="qr-img" src="" alt="QR Code">
+      <div class="qr-timer-bar"><div class="qr-timer-inner" id="qr-timer-bar"></div></div>
+      <div class="qr-secs">QR disponible por <strong id="qr-secs">30</strong> segundos</div>
+    </div>
+
+    <button class="btn-insert" onclick="goToWelcome()">NUEVA FOTO ▶</button>
+  </div>
+
+
+  <script>
+    let stream = null;
+    let cdInterval = null;
+    let procInterval = null;
+    let qrInterval = null;
+    let capturedBlob = null;
+
+    // ── NAVEGACIÓN ──
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function goToWelcome() {
+      clearIntervals();
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      showScreen('screen-welcome');
+    }
+
+    function goToCamera() {
+      showScreen('screen-camera');
+      startCamera();
+    }
+
+    function clearIntervals() {
+      clearInterval(cdInterval);
+      clearInterval(procInterval);
+      clearInterval(qrInterval);
+    }
+
+    // ── CÁMARA ──
+    async function startCamera() {
+      const errBox = document.getElementById('cam-error');
+      errBox.classList.remove('show');
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } }
+        });
+        document.getElementById('video').srcObject = stream;
+      } catch (e) {
+        errBox.classList.add('show');
+        console.error('Camera error:', e);
+      }
+    }
+
+    // ── CUENTA ATRÁS ──
+    function startCountdown() {
+      const btn = document.getElementById('shoot-btn');
+      btn.disabled = true;
+      const overlay = document.getElementById('countdown');
+      const numEl = document.getElementById('countdown-num');
+      overlay.classList.add('show');
+      let count = 3;
+      numEl.textContent = count;
+      cdInterval = setInterval(() => {
+        count--;
+        if (count <= 0) {
+          clearInterval(cdInterval);
+          overlay.classList.remove('show');
+          btn.disabled = false;
+          takePhoto();
+        } else {
+          numEl.textContent = count;
+        }
+      }, 1000);
+    }
+
+    // ── CAPTURAR FOTO ──
+    function takePhoto() {
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      canvas.width = video.videoWidth || 1280;
+      canvas.height = video.videoHeight || 960;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      canvas.toBlob(blob => {
+        capturedBlob = blob;
+        showScreen('screen-processing');
+        sendToServer(blob);
+        animateProcessing();
+      }, 'image/jpeg', 0.92);
+    }
+
+    // ── ENVIAR AL SERVIDOR ──
+    async function sendToServer(blob) {
+      const formData = new FormData();
+      formData.append('photo', blob, 'photo.jpg');
+      try {
+        const response = await fetch('/api/photo', { method: 'POST', body: formData });
+        const data = await response.json();
+        if (data.success) {
+          clearInterval(procInterval);
+          // Marcar todos como done
+          for (let i = 0; i <= 3; i++) setStep(i, 'done');
+          setTimeout(() => showQR(data.qr), 800);
+        } else {
+          showProcessingError(data.error);
+        }
+      } catch (err) {
+        showProcessingError(err.message);
+      }
+    }
+
+    function showProcessingError(msg) {
+      clearInterval(procInterval);
+      document.getElementById('proc-label').textContent = 'Error: ' + msg;
+      document.getElementById('proc-label').style.color = '#F09595';
+      setTimeout(goToWelcome, 4000);
+    }
+
+    // ── ANIMACIÓN DE PROCESAMIENTO ──
+    const procSteps = [
+      [0,  25, 'Analizando rostro con GPT-4o Vision...'],
+      [25, 60, 'Generando mundo Game Boy con DALL-E 3...'],
+      [60, 85, 'Aplicando iluminación cinematográfica...'],
+      [85, 99, 'Preparando QR de descarga...'],
+    ];
+    let animPct = 0;
+    let animStep = 0;
+
+    function setStep(i, state) {
+      const el = document.getElementById('step-' + i);
+      if (el) el.className = 'proc-step ' + state;
+    }
+
+    function animateProcessing() {
+      animPct = 0; animStep = 0;
+      setStep(0, 'active');
+      procInterval = setInterval(() => {
+        if (animPct >= 99) return;
+        animPct = Math.min(animPct + .4, 99);
+        document.getElementById('proc-bar').style.width = animPct + '%';
+        document.getElementById('proc-pct').textContent = Math.floor(animPct) + '%';
+        for (let i = 0; i < procSteps.length; i++) {
+          const [from, to, txt] = procSteps[i];
+          if (animPct >= from && animPct < to) {
+            if (animStep !== i) { setStep(animStep, 'done'); animStep = i; setStep(i, 'active'); }
+            document.getElementById('proc-label').textContent = txt;
+          }
+        }
+      }, 200);
+    }
+
+    // ── MOSTRAR QR ──
+    function showQR(qrDataUrl) {
+      document.getElementById('qr-img').src = qrDataUrl;
+      showScreen('screen-qr');
+      let secs = 30;
+      document.getElementById('qr-secs').textContent = secs;
+      document.getElementById('qr-timer-bar').style.width = '100%';
+      qrInterval = setInterval(() => {
+        secs--;
+        const pct = Math.round(secs / 30 * 100);
+        document.getElementById('qr-secs').textContent = secs;
+        document.getElementById('qr-timer-bar').style.width = pct + '%';
+        if (secs <= 0) { clearInterval(qrInterval); goToWelcome(); }
+      }, 1000);
+    }
+
+    // Evitar zoom en doble tap
+    document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+    let lastTap = 0;
+    document.addEventListener('touchend', e => {
+      const now = Date.now();
+      if (now - lastTap < 300) e.preventDefault();
+      lastTap = now;
+    }, { passive: false });
+  </script>
+</body>
+</html>
